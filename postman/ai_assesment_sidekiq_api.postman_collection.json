@@ -1,0 +1,314 @@
+{
+  "info": {
+    "_postman_id": "a8e9b6f1-4d13-4a5b-9f7f-rails-assignment-sidekiq",
+    "name": "AI Assessment Sidekiq API",
+    "description": "Postman collection for the Rails assignment API. Import this collection, set the base_url if needed, then run the requests in order.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "idempotency_key",
+      "value": "order-123"
+    },
+    {
+      "key": "request_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Create Request - Success",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotency_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"payload\": {\n    \"customer_id\": \"cust_42\",\n    \"amount\": 1500\n  },\n  \"simulation_mode\": \"success\",\n  \"max_retries\": 3\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/requests",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "requests"
+          ]
+        },
+        "description": "Creates a new processing request and stores the returned request id for later calls."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 202 or 200', function () {",
+              "  pm.expect([200, 202]).to.include(pm.response.code);",
+              "});",
+              "const body = pm.response.json();",
+              "if (body.id) {",
+              "  pm.collectionVariables.set('request_id', body.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Create Request - Duplicate Replay",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotency_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"payload\": {\n    \"customer_id\": \"cust_42\",\n    \"amount\": 1500\n  },\n  \"simulation_mode\": \"success\",\n  \"max_retries\": 3\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/requests",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "requests"
+          ]
+        },
+        "description": "Replays the same request with the same idempotency key. The API should return the existing request with 200."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Create Request - Conflict",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{idempotency_key}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"payload\": {\n    \"customer_id\": \"cust_42\",\n    \"amount\": 9999\n  },\n  \"simulation_mode\": \"success\",\n  \"max_retries\": 3\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/requests",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "requests"
+          ]
+        },
+        "description": "Reuses the same idempotency key with a different payload to trigger a 409 conflict."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 409', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Get Request Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/requests/{{request_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "requests",
+            "{{request_id}}"
+          ]
+        },
+        "description": "Fetches the latest status for the request captured from the create call."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Cancel Request",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/requests/{{request_id}}/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "requests",
+            "{{request_id}}",
+            "cancel"
+          ]
+        },
+        "description": "Cancels the stored request id if it is still queued or in-flight."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 202 or 409', function () {",
+              "  pm.expect([202, 409]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "Create Request - Fail Once",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "retry-demo-1"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"payload\": {\n    \"customer_id\": \"cust_retry\",\n    \"amount\": 2000\n  },\n  \"simulation_mode\": \"fail_once\",\n  \"max_retries\": 3\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/requests",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "requests"
+          ]
+        },
+        "description": "Creates a request that fails once and then succeeds after retry when Sidekiq is running."
+      },
+      "response": []
+    },
+    {
+      "name": "Create Request - Invalid Simulation Mode",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "bad-mode-1"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"payload\": {\n    \"customer_id\": \"cust_invalid\",\n    \"amount\": 100\n  },\n  \"simulation_mode\": \"wrong\",\n  \"max_retries\": 3\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/requests",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "requests"
+          ]
+        },
+        "description": "Triggers a 400 validation response for an unsupported simulation mode."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ]
+}
